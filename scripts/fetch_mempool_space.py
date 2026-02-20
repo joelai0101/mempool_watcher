@@ -419,9 +419,9 @@ def main() -> int:
                 if db_writer:
                     db_writer.write_snapshot(ts, name, False, None, str(exc), None)
                 metrics.record(False, None)
-                print(f"[{ts}] {name} error: {exc}")
+                print(f"[{ts}] {name} error: {exc}", flush=True)
 
-        print(f"[{ts}] {metrics.summary()}")
+        print(f"[{ts}] {metrics.summary()}", flush=True)
 
         if args.interval <= 0:
             break
