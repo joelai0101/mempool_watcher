@@ -74,6 +74,13 @@ Fee histogram (from `/api/mempool`):
   --start 2026-02-13T00:00:00+00:00 --end 2026-02-13T23:59:59+00:00 --style step
 ```
 
+## Fetch tx details (witness)
+
+Fetch `/api/tx/{txid}` for replacement events and store in `tx_details` table:
+```bash
+./scripts/fetch_tx_details.py --db ./data/mempool.db --sleep 0.2
+```
+
 ## Tables (SQLite)
 
 `api_snapshots`
