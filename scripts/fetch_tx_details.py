@@ -78,21 +78,12 @@ def main() -> int:
         since_clause = " WHERE observed_at >= ?"
         params.append(args.since)
 
-    if args.fetch_all:
-        query = (
-            "SELECT txid FROM ("
-            "SELECT old_txid AS txid FROM replacement_events" + since_clause + " "
-            "UNION SELECT new_txid AS txid FROM replacement_events" + since_clause +
-            ") WHERE txid IS NOT NULL"
-        )
-    else:
-        query = (
-            "SELECT txid FROM ("
-            "SELECT old_txid AS txid FROM replacement_events" + since_clause + " "
-            "UNION SELECT new_txid AS txid FROM replacement_events" + since_clause +
-            ") t LEFT JOIN tx_details d ON t.txid = d.txid AND d.success = 1 "
-            "WHERE t.txid IS NOT NULL AND d.txid IS NULL"
-        )
+    query = (
+        "SELECT txid FROM ("
+        "SELECT old_txid AS txid FROM replacement_events" + since_clause + " "
+        "UNION SELECT new_txid AS txid FROM replacement_events" + since_clause +
+        ") WHERE txid IS NOT NULL"
+    )
 
     if args.limit and args.limit > 0:
         query += " LIMIT ?"
@@ -100,6 +91,11 @@ def main() -> int:
 
     src_cur.execute(query, params)
     txids = [row[0] for row in src_cur.fetchall()]
+
+    if not args.fetch_all and txids:
+        out_cur.execute("SELECT txid FROM tx_details WHERE success = 1")
+        existing = {row[0] for row in out_cur.fetchall()}
+        txids = [txid for txid in txids if txid not in existing]
 
     ssl_context = ssl._create_unverified_context() if args.insecure else None
 
