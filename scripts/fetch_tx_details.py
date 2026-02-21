@@ -76,7 +76,7 @@ def main() -> int:
     since_clause = ""
     if args.since:
         since_clause = " WHERE observed_at >= ?"
-        params.append(args.since)
+        params.extend([args.since, args.since])
 
     query = (
         "SELECT txid FROM ("
