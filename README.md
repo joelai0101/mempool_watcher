@@ -81,6 +81,11 @@ Fetch `/api/tx/{txid}` for replacement events and store in `tx_details` table:
 ./scripts/fetch_tx_details.py --db ./data/mempool.db --sleep 0.2
 ```
 
+Daily (UTC 00:00) batch script:
+```bash
+./scripts/fetch_tx_details_daily.sh
+```
+
 ## Tables (SQLite)
 
 `api_snapshots`
