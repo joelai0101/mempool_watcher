@@ -78,7 +78,7 @@ Fee histogram (from `/api/mempool`):
 
 Fetch `/api/tx/{txid}` for replacement events and store in `tx_details` table:
 ```bash
-./scripts/fetch_tx_details.py --db ./data/mempool.db --sleep 0.2
+./scripts/fetch_tx_details.py --db ./data/tx_details.db --source-db ./data/mempool.db --sleep 0.2
 ```
 
 Daily (UTC 00:00) batch script:

@@ -52,7 +52,8 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Fetch tx details for replacement events.")
-    parser.add_argument("--db", required=True, help="Path to SQLite DB (e.g. ./data/mempool.db)")
+    parser.add_argument("--db", required=True, help="Path to output SQLite DB (e.g. ./data/tx_details.db)")
+    parser.add_argument("--source-db", required=True, help="Path to source DB with replacement_events")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL)
     parser.add_argument("--outdir", default="./data")
     parser.add_argument("--timeout", type=int, default=15)
@@ -64,9 +65,12 @@ def main() -> int:
     parser.add_argument("--insecure", action="store_true", help="Disable TLS verification (not recommended)")
     args = parser.parse_args()
 
-    conn = sqlite3.connect(args.db)
-    ensure_schema(conn)
-    cur = conn.cursor()
+    out_conn = sqlite3.connect(args.db)
+    ensure_schema(out_conn)
+    out_cur = out_conn.cursor()
+
+    src_conn = sqlite3.connect(args.source_db)
+    src_cur = src_conn.cursor()
 
     params: list[str] = []
     since_clause = ""
@@ -94,8 +98,8 @@ def main() -> int:
         query += " LIMIT ?"
         params.append(str(args.limit))
 
-    cur.execute(query, params)
-    txids = [row[0] for row in cur.fetchall()]
+    src_cur.execute(query, params)
+    txids = [row[0] for row in src_cur.fetchall()]
 
     ssl_context = ssl._create_unverified_context() if args.insecure else None
 
@@ -107,38 +111,39 @@ def main() -> int:
         fetched_at = utc_now_iso()
         try:
             data = fetch_json(args.base_url, f"/api/tx/{txid}", args.timeout, ssl_context)
-            cur.execute(
+            out_cur.execute(
                 "INSERT OR REPLACE INTO tx_details (txid, fetched_at, success, status_code, error, data_json) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (txid, fetched_at, 1, 200, None, json.dumps(data, ensure_ascii=True)),
             )
-            conn.commit()
+            out_conn.commit()
             if not args.no_jsonl:
                 with open(out_path, "a", encoding="utf-8") as f:
                     f.write(json.dumps({"fetched_at": fetched_at, "txid": txid, "data": data}, ensure_ascii=True) + "\n")
             print(f"[{fetched_at}] ok {txid}", flush=True)
         except HTTPError as exc:
             body = exc.read().decode("utf-8", errors="replace")
-            cur.execute(
+            out_cur.execute(
                 "INSERT OR REPLACE INTO tx_details (txid, fetched_at, success, status_code, error, data_json) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (txid, fetched_at, 0, exc.code, body[:1000], None),
             )
-            conn.commit()
+            out_conn.commit()
             print(f"[{fetched_at}] error {txid} status={exc.code}", flush=True)
         except URLError as exc:
-            cur.execute(
+            out_cur.execute(
                 "INSERT OR REPLACE INTO tx_details (txid, fetched_at, success, status_code, error, data_json) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (txid, fetched_at, 0, None, str(exc), None),
             )
-            conn.commit()
+            out_conn.commit()
             print(f"[{fetched_at}] error {txid} {exc}", flush=True)
 
         if args.sleep > 0:
             time.sleep(args.sleep)
 
-    conn.close()
+    src_conn.close()
+    out_conn.close()
     return 0
 
 
